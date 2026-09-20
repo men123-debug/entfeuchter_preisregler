@@ -1,0 +1,12 @@
+{
+  "domain": "entfeuchter_preisregler",
+  "name": "Preisgesteuerter Entfeuchter-Regler",
+  "codeowners": ["@men123-debug"],
+  "config_flow": true,
+  "documentation": "https://github.com/men123-debug/entfeuchter_preisregler",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/men123-debug/entfeuchter_preisregler/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
