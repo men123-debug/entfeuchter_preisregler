@@ -1,4 +1,3 @@
-"""Number-Entities für die parametrierbaren Werte."""
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -14,11 +13,13 @@ from .const import (
     DEFAULT_HYSTERESIS,
     DEFAULT_PRICE_LOW,
     DEFAULT_PRICE_HIGH,
+    DEFAULT_DRY_RATE_THRESHOLD,
     KEY_SETPOINT_MIN,
     KEY_SETPOINT_MAX,
     KEY_HYSTERESIS,
     KEY_PRICE_LOW,
     KEY_PRICE_HIGH,
+    KEY_DRY_RATE_THRESHOLD,
 )
 
 
@@ -38,6 +39,8 @@ async def async_setup_entry(
                     DEFAULT_PRICE_LOW, 0, 1000, "EUR/MWh"),
         ParamNumber(entry, KEY_PRICE_HIGH, "Preisgrenze teuer",
                     DEFAULT_PRICE_HIGH, 0, 1000, "EUR/MWh"),
+        ParamNumber(entry, KEY_DRY_RATE_THRESHOLD, "Trocknungsrate Schwelle",
+                    DEFAULT_DRY_RATE_THRESHOLD, -20, 0, "%/h"),
     ]
     async_add_entities(entities)
 
@@ -57,7 +60,7 @@ class ParamNumber(NumberEntity, RestoreEntity):
         self._attr_native_value = default
         self._attr_native_min_value = minimum
         self._attr_native_max_value = maximum
-        self._attr_native_step = 1
+        self._attr_native_step = 0.5
         self._attr_native_unit_of_measurement = unit
         self._attr_unique_id = f"{entry.entry_id}_{param_key}"
         self._attr_device_info = None
