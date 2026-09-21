@@ -1,5 +1,3 @@
-"""Konstanten für die Entfeuchter-Preisregler-Integration."""
-
 DOMAIN = "entfeuchter_preisregler"
 
 CONF_HUMIDITY_ENTITY = "humidity_entity"
