@@ -1,10 +1,10 @@
-"""Entfeuchter-Preisregler: Hysterese-Regelung mit preisabhängigem Sollwert."""
 from __future__ import annotations
 
 import logging
 
+import homeassistant.util.dt as dt_util
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
@@ -17,8 +17,10 @@ from .const import (
     KEY_HYSTERESIS,
     KEY_PRICE_LOW,
     KEY_PRICE_HIGH,
+    KEY_DRY_RATE_THRESHOLD,
     DEFAULT_SETPOINT_MIN,
     DEFAULT_SETPOINT_MAX,
+    DEFAULT_DRY_RATE_THRESHOLD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store.setdefault(
         "current_setpoint", (DEFAULT_SETPOINT_MIN + DEFAULT_SETPOINT_MAX) / 2
     )
+    store.setdefault("last_humidity", None)
 
     def _get_number(key, default):
         numbers = store.get("numbers", {})
@@ -57,6 +60,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return float(entity.native_value)
         return default
 
+    def _is_switch_on() -> bool:
+        state = hass.states.get(switch_entity)
+        return state is not None and state.state == "on"
+
     async def _apply_switch(turn_on: bool) -> None:
         domain = switch_entity.split(".")[0]
         service = "turn_on" if turn_on else "turn_off"
@@ -64,14 +71,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             domain, service, {"entity_id": switch_entity}, blocking=False
         )
 
+    def _compute_rate(humidity: float):
+        last = store.get("last_humidity")
+        now = dt_util.utcnow()
+        store["last_humidity"] = (humidity, now)
+        if last is None:
+            return None
+        last_value, last_time = last
+        elapsed_hours = (now - last_time).total_seconds() / 3600
+        if elapsed_hours <= 0:
+            return None
+        return (humidity - last_value) / elapsed_hours
+
     async def _evaluate_hysterese(_event=None) -> None:
         humidity = _float_state(hass, humidity_entity)
         if humidity is None:
             return
+
+        rate = _compute_rate(humidity)
+
         hysteresis = _get_number(KEY_HYSTERESIS, 5.0)
         setpoint = store["current_setpoint"]
         upper = setpoint + hysteresis
         lower = setpoint - hysteresis
+
+        dry_rate_threshold = _get_number(
+            KEY_DRY_RATE_THRESHOLD, DEFAULT_DRY_RATE_THRESHOLD
+        )
+        if _is_switch_on() and rate is not None and rate <= dry_rate_threshold:
+            _LOGGER.debug("Rate %.2f", rate)
+            await _apply_switch(False)
+            return
 
         if humidity > upper:
             await _apply_switch(True)
